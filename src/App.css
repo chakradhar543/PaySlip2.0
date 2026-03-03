@@ -1,0 +1,305 @@
+/* =========================
+   A4 PAGE + DOUBLE BORDER
+========================= */
+.a4-page {
+  width: 210mm;
+  height: 297mm;
+  margin: auto;
+  padding: 22mm 18mm;
+  background: #fff;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  position: relative;
+}
+
+/* INNER BORDER */
+.a4-page::before {
+  content: "";
+  position: absolute;
+  top: 10mm;
+  bottom: 10mm;
+  left: 10mm;
+  right: 10mm;
+  border: 2px solid #000;
+  pointer-events: none;
+}
+
+/* =========================
+   HEADER
+========================= */
+.payslip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0px;
+  width: 100%;
+}
+
+/* LEFT */
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confidential-text {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.logo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;              /* space between logo & text only */
+  justify-content: center;
+}
+
+/* Logo */
+.company-logo {
+  display: block;
+  margin: 0;
+  height: 150px;          /* adjust if needed */
+}
+
+/* Text wrapper */
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  text-align: 8px;
+  gap: 0;                /* NO GAP between title & tagline */
+  line-height: 1;
+}
+
+/* Main title */
+.brand-title {
+  margin: 0;
+  padding: 0;
+  font-size: 32px;
+  font-weight: 70;
+  letter-spacing: 1px;
+}
+
+/* Tagline */
+.brand-tagline {
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  letter-spacing: 3px;
+}
+/* RIGHT */
+.header-right {
+  margin-top:190px;
+  max-width: 200%;     /* ✅ stays inside border */
+  margin-bottom: 0%;  
+  margin-left: 0px;
+}
+.info-row {
+  display: grid;
+  grid-template-columns: 130px 15px auto;
+  margin-top: 0px;
+  margin-bottom: 2px;
+  font-size: 15px;
+  white-space: nowrap;      /* no line break */
+}
+
+.label {
+  font-weight: 600;
+  text-align: left;
+}
+
+.colon {
+  text-align: center;
+}
+
+.value {
+  text-align: left;
+}
+
+/* =========================
+   MASTER TABLE (IMPORTANT)
+========================= */
+.master-table {
+  width: 100%;
+  border: 2px solid #000;
+  border-collapse: collapse;
+  margin-top:-2px;
+  position: relative;
+}
+
+/* 🔥 SINGLE CONTINUOUS CENTER LINE (50–50) */
+.master-table::before {
+  content: "";
+  position: absolute;
+  top: 10mm;
+  bottom: 0;
+  left: 50%;
+  border-left: 2px solid #000;
+  pointer-events: none;
+}
+
+.no-padding {
+  padding: 0;
+}
+
+/* =========================
+   DETAILS TABLE
+========================= */
+.a4-page.pdf-borders .details-inner td,
+.a4-page.pdf-borders .details-inner th,
+.a4-page.pdf-borders .salary-inner td,
+.a4-page.pdf-borders .salary-inner th {
+  border: 1px solid #000 !important;
+}
+
+.a4-page.pdf-borders .salary-inner th:nth-child(3),
+.a4-page.pdf-borders .salary-inner td:nth-child(3) {
+  border: none !important;
+}
+
+.details-inner {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.details-inner {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* 🔒 Prevent word breaking for ALL cells */
+.details-inner td,
+.details-inner th {
+  white-space: nowrap;      /* no line break */
+  word-break: keep-all;     /* no word split */
+}
+
+.details-inner td {
+  border: 1px solid #000;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+/* 50% LEFT */
+.details-inner td:nth-child(1),
+.details-inner td:nth-child(2) {
+  width: 25%;
+}
+
+/* 50% RIGHT */
+.details-inner td:nth-child(3),
+.details-inner td:nth-child(4) {
+  width: 25%;
+}
+.details-inner .label {
+  font-weight: 600;
+  width: 22%;
+}
+
+/* =========================
+   SALARY TABLE
+========================= */
+.salary-inner {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+/* HEADERS */
+.salary-inner th {
+  padding: 10px;
+  font-weight: 600;
+  font-size: 15px;
+  border-bottom: 2px solid #000;
+  text-align: left;
+}
+
+.salary-inner th.amount {
+  text-align: right;
+}
+
+/* ROWS */
+.salary-inner td {
+  padding: 10px;
+  border-bottom: 1px dashed #bbb;
+}
+
+.salary-inner td.amount {
+  text-align: left;
+}
+
+/* 50% LEFT */
+.salary-inner th:nth-child(1),
+.salary-inner td:nth-child(1) { width: 35%; }
+
+.salary-inner th:nth-child(2),
+.salary-inner td:nth-child(2) { width: 15%; }
+
+/* HIDDEN DIVIDER COLUMN */
+.salary-inner th:nth-child(3),
+.salary-inner td:nth-child(3) {
+  width: 0;
+  padding: 0;
+  border: none;
+}
+
+/* 50% RIGHT */
+.salary-inner th:nth-child(4),
+.salary-inner td:nth-child(4) { width: 35%; }
+
+.salary-inner th:nth-child(5),
+.salary-inner td:nth-child(5) { width: 15%; }
+
+/* TOTAL */
+.total-row td {
+  font-weight: 700;
+  border-top: 2px solid #000;
+  border-bottom: none;
+}
+
+/* =========================
+   NET SALARY BOX
+========================= */
+.net-salary {
+  margin-top: 14px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: bold;
+  background: #eef3f8;
+  border: 2px solid #000;
+  text-align: right;
+}
+
+/* =========================
+   FOOTER
+========================= */
+.payslip-footer {
+  margin-top: 25px;
+  padding-top: 12px;
+  border-top: 1px solid #999;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.company-footer-name {
+  font-weight: 700;
+}
+
+.company-footer-note {
+  margin-top:90px;
+  text-align: right;
+  font-style: italic;
+  font-size: 11px;
+}
+
+/* =========================
+   PRINT / PDF SAFE
+========================= */
+@media print {
+  body {
+    margin: 0;
+    background: #fff;
+  }
+}
