@@ -403,6 +403,11 @@ export default function PayslipCTC() {
                       <span className="colon">:</span>
                       <span className="value">{data.designation}</span>
                     </div>
+                    <div className="info-row">
+                      <span className="label">CTC</span>
+                      <span className="colon">:</span>
+                      <span className="value">{formatINR(data.ctc)}</span>
+                    </div>
                   </div>
                 </div>
                 {/* DETAILS */}
