@@ -31,16 +31,27 @@ export default function PayslipCTC() {
   const [bonusEnabled, setBonusEnabled] = useState(false);
   const [bonusAmount, setBonusAmount] = useState(0);
 
-  const [employeeShareEnabled, setEmployeeShareEnabled] = useState(false);
+  const [pfEnabled, setPfEnabled] = useState(false);
   const [employeeShareAmount, setEmployeeShareAmount] = useState(0);
-  const [employerShareEnabled, setEmployerShareEnabled] = useState(false);
   const [employerShareAmount, setEmployerShareAmount] = useState(0);
   const [uanEnabled, setUanEnabled] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [addressEnabled, setAddressEnabled] = useState(false);
+
+  const [TdsEnabled, setTdsEnabled] = useState(false);
+  const [TdsAmountInput, setTdsAmount] = useState(0);
+
   const [excelRows, setExcelRows] = useState([]);
-  const handleChange = (e) =>
-    setData({ ...data, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setData((prev) => {
+      const next = { ...prev, [name]: value };
+      const worked = Number(next.daysWorked || 0);
+      const lop = Number(next.lopDays || 0);
+      next.daysPayable = lop > 0 ? Math.max(worked - lop, 0) : worked;
+      return next;
+    });
+  };
 
   /* ===== HELPERS ===== */
   const formatDate = (date) => {
@@ -74,16 +85,39 @@ export default function PayslipCTC() {
   const bonus = bonusEnabled ? Number(bonusAmount) : 0;
 
   const lopDeduction = (monthlyCTC / 30) * Number(data.lopDays || 0);
+  const workedDays = Number(data.daysWorked || 0);
+  const lopDays = Number(data.lopDays || 0);
+  const payableDays = lopDays > 0 ? Math.max(workedDays - lopDays, 0) : workedDays;
 
-  const pfEmployee = employeeShareEnabled ? Number(employeeShareAmount || 0) : 0;
-  const pfEmployer = employerShareEnabled ? Number(employerShareAmount || 0) : 0;
+  const pfEmployee = pfEnabled ? Number(employeeShareAmount || 0) : 0;
+  const pfEmployer = pfEnabled ? Number(employerShareAmount || 0) : 0;
   const pf = pfEmployee + pfEmployer;
   const profTax = 200;
-
+  const TdsAmount = TdsEnabled ? Number(TdsAmountInput || 0) : 0;
   const grossEarnings = basic + hra + special + bonus;
-  const grossDeductions = pf + profTax + lopDeduction + variablePay;
+  const grossDeductions = pf + profTax + lopDeduction + variablePay + TdsAmount;
 
   const netSalary = grossEarnings - grossDeductions;
+  const showEmployeePF = pfEnabled;
+  const showEmployerPF = pfEnabled;
+  const showLopDeduction = Number(data.lopDays || 0) > 0;
+
+  const earningsRows = [
+    { label: "Basic", amount: basic },
+    { label: "HRA", amount: hra },
+    { label: "Special Allowance", amount: special },
+    ...(bonusEnabled ? [{ label: "Bonus", amount: bonus }] : []),
+  ];
+
+  const deductionRows = [
+    ...(showEmployeePF ? [{ label: "Employee PF", amount: pfEmployee }] : []),
+    ...(showEmployerPF ? [{ label: "Employer PF", amount: pfEmployer }] : []),
+    { label: "Professional Tax", amount: profTax },
+    ...(showLopDeduction ? [{ label: "LOP Deduction", amount: lopDeduction }] : []),
+    ...(variablePayEnabled ? [{ label: "Variable Pay", amount: variablePay }] : []),
+  ];
+
+  const salaryRowCount = Math.max(earningsRows.length, deductionRows.length);
 
   /* ===== PDF ===== */
   const downloadPDF = async () => {
@@ -155,9 +189,9 @@ export default function PayslipCTC() {
       "Join Date": formatDate(data.joinDate),
       Location: data.location,
       Department: data.department,
-      "Days Payable": Number(data.daysPayable || 0),
-      "Days Worked": Number(data.daysWorked || 0),
-      "LOP Days": Number(data.lopDays || 0),
+      "Days Payable": payableDays,
+      "Days Worked": workedDays,
+      "LOP Days": lopDays,
       PAN: data.pan,
       GST: data.gst,
       UAN: uanEnabled ? data.uan : "",
@@ -170,6 +204,7 @@ export default function PayslipCTC() {
       "PF Employee": pfEmployee,
       "PF Employer": pfEmployer,
       "PF Total": pf,
+      "Tds": TdsAmount,
       "Professional Tax": profTax,
       "LOP Deduction": lopDeduction,
       "Gross Earnings": grossEarnings,
@@ -256,14 +291,15 @@ export default function PayslipCTC() {
                   onChange={(e) => setBonusAmount(e.target.value)} /> 
                   </div> )}
                     <div className="col-md-3">
-                      <label>Employee PF</label>
+                      <label>PF</label>
                       <select
                         className="form-control"
                         onChange={(e) => {
                           const enabled = e.target.value === "yes";
-                          setEmployeeShareEnabled(enabled);
+                          setPfEnabled(enabled);
                           if (!enabled) {
                             setEmployeeShareAmount(0);
+                            setEmployerShareAmount(0);
                           }
                         }}
                       >
@@ -271,7 +307,7 @@ export default function PayslipCTC() {
                         <option value="yes">Yes</option>
                       </select>
                     </div>
-                    {employeeShareEnabled && (
+                    {pfEnabled && (
                       <div className="col-md-3">
                         <label>Employee PF Amount</label>
                         <input
@@ -281,23 +317,7 @@ export default function PayslipCTC() {
                         />
                       </div>
                     )}
-                    <div className="col-md-3">
-                      <label>Employer PF</label>
-                      <select
-                        className="form-control"
-                        onChange={(e) => {
-                          const enabled = e.target.value === "yes";
-                          setEmployerShareEnabled(enabled);
-                          if (!enabled) {
-                            setEmployerShareAmount(0);
-                          }
-                        }}
-                      >
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
-                      </select>
-                    </div>
-                    {employerShareEnabled && (
+                    {pfEnabled && (
                       <div className="col-md-3">
                         <label>Employer PF Amount</label>
                         <input
@@ -353,8 +373,27 @@ export default function PayslipCTC() {
                           />
                         </div>
                       )}
-                </div>
-              <button
+                      <div className="col-md-3">
+                        <label>TDS</label>
+                        <select
+                          className="form-control"
+                          onChange={(e) => setTdsEnabled(e.target.value === "yes")}
+                        >
+                          <option value="no">No</option>
+                          <option value="yes">Yes</option>
+                        </select>
+                      </div>
+                      {TdsEnabled && (
+                        <div className="col-md-3">
+                          <label>TDS Amount</label>
+                          <input
+                            type="number"
+                            className="form-control"
+                            onChange={(e) => setTdsAmount(e.target.value)}
+                          />
+                        </div>
+                      )}
+                      <button
                 className="btn btn-success mb-3"
                 onClick={() => {
                   setConfirmed(true);
@@ -436,7 +475,7 @@ export default function PayslipCTC() {
                           <td className="label">Days Worked</td>
                           <td>{data.daysWorked}</td>
                           <td className="label">Days Payable</td>
-                          <td>{data.daysPayable}</td>
+                          <td>{payableDays}</td>
                         </tr>
 
                       {uanEnabled ? (
@@ -463,6 +502,12 @@ export default function PayslipCTC() {
                           <td>{data.lopDays ? data.lopDays : 0}</td>
                         </tr>
                       )}
+                      {TdsEnabled && (
+                        <tr>
+                          <td className="label">TDS Amount</td>
+                          <td>{formatINR(TdsAmountInput)}</td>
+                        </tr>
+                      )}
                     </tbody>
                     </table>
                   </td>
@@ -483,51 +528,23 @@ export default function PayslipCTC() {
                       </thead>
 
                       <tbody>
-                        <tr>
-                          <td>Basic</td>
-                          <td className="amount">{formatINR(basic)}</td>
-                          <td className="center-divider"></td>
-                          <td>Employee PF</td>
-                          <td className="amount">{formatINR(pfEmployee)}</td>
-                        </tr>
-
-                        <tr>
-                          <td>HRA</td>
-                          <td className="amount">{formatINR(hra)}</td>
-                          <td className="center-divider"></td>
-                          <td>Employer PF</td>
-                          <td className="amount">{formatINR(pfEmployer)}</td>
-                        </tr>
-
-                        <tr>
-                          <td>Special Allowance</td>
-                          <td className="amount">{formatINR(special)}</td>
-                          <td className="center-divider"></td>
-                          <td>Professional Tax</td>
-                          <td className="amount">{formatINR(profTax)}</td>
-                        </tr>
-
-                        <tr>
-                          <td>{bonusEnabled ? "Bonus" : ""}</td>
-                          <td className="amount">
-                            {bonusEnabled ? formatINR(bonus) : ""}
-                          </td>
-                          <td className="center-divider"></td>
-                          <td>LOP Deduction</td>
-                          <td className="amount">{formatINR(lopDeduction)}</td>
-                        </tr>
-
-                        {variablePayEnabled && (
-                          <tr>
-                            <td></td>
-                            <td className="amount"></td>
-                            <td className="center-divider"></td>
-                            <td>Variable Pay</td>
-                            <td className="amount">
-                              {formatINR(variablePay)}
-                            </td>
-                          </tr>
-                        )}
+                        {Array.from({ length: salaryRowCount }).map((_, index) => {
+                          const earning = earningsRows[index];
+                          const deduction = deductionRows[index];
+                          return (
+                            <tr key={index}>
+                              <td>{earning ? earning.label : ""}</td>
+                              <td className="amount">
+                                {earning ? formatINR(earning.amount) : ""}
+                              </td>
+                              <td className="center-divider"></td>
+                              <td>{deduction ? deduction.label : ""}</td>
+                              <td className="amount">
+                                {deduction ? formatINR(deduction.amount) : ""}
+                              </td>
+                            </tr>
+                          );
+                        })}
                         <tr className="total-row">
                           <td>Total</td>
                           <td className="amount">{formatINR(grossEarnings)}</td>
@@ -572,6 +589,7 @@ export default function PayslipCTC() {
           </button>
         </>
       )}
+      </div>
     </div>
   );
 }
