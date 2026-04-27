@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
-import logo from "../assets/company-logo.jpeg";
+import logo from "../assets/company-logo.png";
 
 export default function PayslipCTC() {
   const pdfRef = useRef();
@@ -20,7 +20,6 @@ export default function PayslipCTC() {
     daysWorked: 30,
     lopDays: 0,
     address: "",
-    gst: "",
     uan: "",
     pan: "",
   });
@@ -76,15 +75,19 @@ export default function PayslipCTC() {
   };
 
   /* ===== SALARY ===== */
-  const monthlyCTC = Number(data.ctc || 0) / 12;
-  const basic = monthlyCTC * 0.5;
+  const fixedAnnualCTC = Number(data.ctc || 0);
+  const variablePay = variablePayEnabled ? Number(variablePayAmount || 0) : 0;
+  const annualCTC = fixedAnnualCTC + variablePay;
+  const monthlyCTC = annualCTC / 12;
+  const monthlyFixedCTC = fixedAnnualCTC / 12;
+  const monthlyVariablePay = variablePay / 12;
+  const basic = monthlyFixedCTC * 0.5;
   const hra = basic * 0.4;
-  const special = monthlyCTC - (basic + hra);
+  const special = monthlyFixedCTC - (basic + hra);
 
-  const variablePay = variablePayEnabled ? Number(variablePayAmount) : 0;
   const bonus = bonusEnabled ? Number(bonusAmount) : 0;
 
-  const lopDeduction = (monthlyCTC / 30) * Number(data.lopDays || 0);
+  const lopDeduction = (monthlyFixedCTC / 30) * Number(data.lopDays || 0);
   const workedDays = Number(data.daysWorked || 0);
   const lopDays = Number(data.lopDays || 0);
   const payableDays = lopDays > 0 ? Math.max(workedDays - lopDays, 0) : workedDays;
@@ -94,18 +97,20 @@ export default function PayslipCTC() {
   const pf = pfEmployee + pfEmployer;
   const profTax = 200;
   const TdsAmount = TdsEnabled ? Number(TdsAmountInput || 0) : 0;
-  const grossEarnings = basic + hra + special + bonus;
-  const grossDeductions = pf + profTax + lopDeduction + variablePay + TdsAmount;
+  const grossEarnings = basic + hra + special + monthlyVariablePay + bonus;
+  const grossDeductions = pf + profTax + lopDeduction + TdsAmount;
 
   const netSalary = grossEarnings - grossDeductions;
   const showEmployeePF = pfEnabled;
   const showEmployerPF = pfEnabled;
+  const showLopDays = Number(data.lopDays || 0) > 0;
   const showLopDeduction = Number(data.lopDays || 0) > 0;
 
   const earningsRows = [
     { label: "Basic", amount: basic },
     { label: "HRA", amount: hra },
     { label: "Special Allowance", amount: special },
+    ...(variablePayEnabled ? [{ label: "Variable Pay", amount: monthlyVariablePay }] : []),
     ...(bonusEnabled ? [{ label: "Bonus", amount: bonus }] : []),
   ];
 
@@ -114,7 +119,7 @@ export default function PayslipCTC() {
     ...(showEmployerPF ? [{ label: "Employer PF", amount: pfEmployer }] : []),
     { label: "Professional Tax", amount: profTax },
     ...(showLopDeduction ? [{ label: "LOP Deduction", amount: lopDeduction }] : []),
-    ...(variablePayEnabled ? [{ label: "Variable Pay", amount: variablePay }] : []),
+    ...(TdsEnabled ? [{ label: "TDS", amount: TdsAmount }] : []),
   ];
 
   const salaryRowCount = Math.max(earningsRows.length, deductionRows.length);
@@ -183,8 +188,11 @@ export default function PayslipCTC() {
       Name: data.name,
       "Payslip For": data.payslipFor,
       Designation: data.designation,
-      "Annual CTC": Number(data.ctc || 0),
+      "Annual CTC": annualCTC,
+      "Fixed Annual CTC": fixedAnnualCTC,
+      "Variable Annual CTC": variablePay,
       "Monthly CTC": monthlyCTC,
+      "Monthly Fixed CTC": monthlyFixedCTC,
       "Associate ID": data.associateId,
       "Join Date": formatDate(data.joinDate),
       Location: data.location,
@@ -193,14 +201,13 @@ export default function PayslipCTC() {
       "Days Worked": workedDays,
       "LOP Days": lopDays,
       PAN: data.pan,
-      GST: data.gst,
       UAN: uanEnabled ? data.uan : "",
       Address: addressEnabled ? data.address : "",
       Basic: basic,
       HRA: hra,
       "Special Allowance": special,
       Bonus: bonus,
-      "Variable Pay": variablePay,
+      "Variable Pay": monthlyVariablePay,
       "PF Employee": pfEmployee,
       "PF Employer": pfEmployer,
       "PF Total": pf,
@@ -238,7 +245,6 @@ export default function PayslipCTC() {
     ["daysWorked", "Days Worked"],
     ["lopDays", "LOP Days"],
     ["pan", "PAN"],
-    ["gst", "GST"],
   ];
 
   return (
@@ -271,7 +277,7 @@ export default function PayslipCTC() {
             </select> </div> 
             {variablePayEnabled && ( 
               <div className="col-md-3"> 
-              <label>Variable Pay Amount</label> 
+              <label>Variable Pay Amount (Annual)</label> 
               <input type="number" className="form-control" 
               onChange={(e) => setVariablePayAmount(e.target.value)} /> 
               </div> )} 
@@ -394,7 +400,7 @@ export default function PayslipCTC() {
                         </div>
                       )}
                       <button
-                className="btn btn-success mb-3"
+                className="btn btn-success mb-1"
                 onClick={() => {
                   setConfirmed(true);
                 }}
@@ -402,7 +408,7 @@ export default function PayslipCTC() {
                 Generate Payslip
               </button>
               <button
-                className="btn btn-outline-success mb-3 ms-2"
+                className="btn btn-outline-success mb-1 ms-2"
                 onClick={() => {
                   setExcelRows((prev) => [...prev, buildExcelRow()]);
                 }}
@@ -445,7 +451,7 @@ export default function PayslipCTC() {
                     <div className="info-row">
                       <span className="label">CTC</span>
                       <span className="colon">:</span>
-                      <span className="value">{formatINR(data.ctc)}</span>
+                      <span className="value">{formatINR(annualCTC)}</span>
                     </div>
                   </div>
                 </div>
@@ -487,25 +493,30 @@ export default function PayslipCTC() {
                             <td className="label">PAN</td>
                             <td>{data.pan}</td>
                           </tr>
-                          <tr>
-                           <td className="label">LOP Days</td>
-                            <td>{data.lopDays ? data.lopDays : 0}</td>
-                            <td></td>
-                            <td></td>
-                          </tr>
+                          {showLopDays && (
+                            <tr>
+                              <td className="label">LOP Days</td>
+                              <td>{lopDays}</td>
+                              <td></td>
+                              <td></td>
+                            </tr>
+                          )}
                         </>
                       ) : (
                         <tr>
                           <td className="label">PAN</td>
                           <td>{data.pan}</td>
-                          <td className="label">LOP Days</td>
-                          <td>{data.lopDays ? data.lopDays : 0}</td>
-                        </tr>
-                      )}
-                      {TdsEnabled && (
-                        <tr>
-                          <td className="label">TDS Amount</td>
-                          <td>{formatINR(TdsAmountInput)}</td>
+                          {showLopDays ? (
+                            <>
+                              <td className="label">LOP Days</td>
+                              <td>{lopDays}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td></td>
+                              <td></td>
+                            </>
+                          )}
                         </tr>
                       )}
                     </tbody>
@@ -573,7 +584,7 @@ export default function PayslipCTC() {
               </div>
             )}
             <div className="company-footer-gst">
-              GSTIN: {data.gst}
+              GSTIN: 36AAIFU2638L1ZQ
             </div>
 
             <div className="company-footer-note">
