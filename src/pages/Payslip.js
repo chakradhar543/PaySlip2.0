@@ -4,6 +4,8 @@ import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import logo from "../assets/company-logo.png";
 
+const COMPANY_GST = "36AAIFU2638L1ZQ";
+
 export default function PayslipCTC() {
   const pdfRef = useRef();
 
@@ -98,7 +100,7 @@ export default function PayslipCTC() {
   const profTax = 200;
   const TdsAmount = TdsEnabled ? Number(TdsAmountInput || 0) : 0;
   const grossEarnings = basic + hra + special + monthlyVariablePay + bonus;
-  const grossDeductions = pf + profTax + lopDeduction + TdsAmount;
+  const grossDeductions = pf + profTax + lopDeduction + TdsAmount + monthlyVariablePay;
 
   const netSalary = grossEarnings - grossDeductions;
   const showEmployeePF = pfEnabled;
@@ -201,6 +203,7 @@ export default function PayslipCTC() {
       "Days Worked": workedDays,
       "LOP Days": lopDays,
       PAN: data.pan,
+      GST: COMPANY_GST,
       UAN: uanEnabled ? data.uan : "",
       Address: addressEnabled ? data.address : "",
       Basic: basic,
@@ -343,7 +346,16 @@ export default function PayslipCTC() {
                         <option value="yes">Yes</option>
                       </select>
                     </div>
-
+                    <div className="col-md-3">
+                      <label>GST</label>
+                      <input
+                        type="text"
+                        name="gst"
+                        className="form-control"
+                        value={COMPANY_GST}
+                        onChange={handleChange}
+                      />
+                    </div>
                     {uanEnabled && (
                       <div className="col-md-3">
                         <label>UAN Number</label>
@@ -484,6 +496,7 @@ export default function PayslipCTC() {
                           <td>{payableDays}</td>
                         </tr>
 
+
                       {uanEnabled ? (
                         <>
                           <tr>
@@ -584,7 +597,7 @@ export default function PayslipCTC() {
               </div>
             )}
             <div className="company-footer-gst">
-              GSTIN: 36AAIFU2638L1ZQ
+              GST:{COMPANY_GST}
             </div>
 
             <div className="company-footer-note">
