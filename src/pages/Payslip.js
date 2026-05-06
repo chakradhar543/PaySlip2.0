@@ -43,6 +43,25 @@ export default function PayslipCTC() {
   const [TdsAmountInput, setTdsAmount] = useState(0);
 
   const [excelRows, setExcelRows] = useState([]);
+  const [uploadedPayslips, setUploadedPayslips] = useState([]);
+  const [currentPayslipIndex, setCurrentPayslipIndex] = useState(0);
+
+  const defaultData = {
+    name: "",
+    payslipFor: "",
+    designation: "",
+    ctc: "",
+    associateId: "",
+    joinDate: "",
+    location: "",
+    department: "",
+    daysPayable: 30,
+    daysWorked: 30,
+    lopDays: 0,
+    address: "",
+    uan: "",
+    pan: "",
+  };
   const handleChange = (e) => {
     const { name, value } = e.target;
     setData((prev) => {
@@ -100,7 +119,7 @@ export default function PayslipCTC() {
   const profTax = 200;
   const TdsAmount = TdsEnabled ? Number(TdsAmountInput || 0) : 0;
   const grossEarnings = basic + hra + special + monthlyVariablePay + bonus;
-  const grossDeductions = pf + profTax + lopDeduction + TdsAmount + monthlyVariablePay;
+  const grossDeductions = pf + profTax + lopDeduction + TdsAmount ;
 
   const netSalary = grossEarnings - grossDeductions;
   const showEmployeePF = pfEnabled;
@@ -222,6 +241,152 @@ export default function PayslipCTC() {
       "Net Salary": netSalary,
     });
 
+  const normalizeHeader = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const getCell = (row, labels) => {
+    const normalizedRow = Object.entries(row).reduce((acc, [key, value]) => {
+      acc[normalizeHeader(key)] = value;
+      return acc;
+    }, {});
+
+    for (const label of labels) {
+      const value = normalizedRow[normalizeHeader(label)];
+      if (value !== undefined && value !== null && value !== "") return value;
+    }
+    return "";
+  };
+
+  const toNumber = (value, fallback = 0) => {
+    if (value === undefined || value === null || value === "") return fallback;
+    const number = Number(String(value).replace(/,/g, ""));
+    return Number.isFinite(number) ? number : fallback;
+  };
+
+  const toExcelDateInput = (value) => {
+    if (!value) return "";
+    if (typeof value === "number") {
+      const parsed = XLSX.SSF.parse_date_code(value);
+      if (!parsed) return "";
+      return `${parsed.y}-${String(parsed.m).padStart(2, "0")}-${String(
+        parsed.d
+      ).padStart(2, "0")}`;
+    }
+
+    const asDate = new Date(value);
+    if (Number.isNaN(asDate.getTime())) return String(value);
+    return asDate.toISOString().slice(0, 10);
+  };
+
+  const normalizePayslipRow = (row) => {
+    const fixedCTC = toNumber(
+      getCell(row, ["Fixed Annual CTC", "Annual CTC", "CTC"])
+    );
+    const variableAnnual = toNumber(
+      getCell(row, ["Variable Annual CTC", "Variable Annual Pay"]),
+      toNumber(getCell(row, ["Variable Pay"])) * 12
+    );
+    const bonusValue = toNumber(getCell(row, ["Bonus", "Bonus Amount"]));
+    const employeePF = toNumber(getCell(row, ["PF Employee", "Employee PF"]));
+    const employerPF = toNumber(getCell(row, ["PF Employer", "Employer PF"]));
+    const tdsValue = toNumber(getCell(row, ["Tds", "TDS", "TDS Amount"]));
+    const uanValue = getCell(row, ["UAN", "UAN Number"]);
+    const addressValue = getCell(row, ["Address"]);
+    const daysWorkedValue = toNumber(getCell(row, ["Days Worked"]), 30);
+    const lopDaysValue = toNumber(getCell(row, ["LOP Days"]), 0);
+    const daysPayableValue = getCell(row, ["Days Payable"]);
+
+    return {
+      data: {
+        ...defaultData,
+        name: getCell(row, ["Name", "Employee Name"]),
+        payslipFor: getCell(row, ["Payslip For", "Month", "Pay Period"]),
+        designation: getCell(row, ["Designation"]),
+        ctc: fixedCTC,
+        associateId: getCell(row, ["Associate ID", "Employee ID", "AssociateId"]),
+        joinDate: toExcelDateInput(getCell(row, ["Join Date", "Date of Joining"])),
+        location: getCell(row, ["Location"]),
+        department: getCell(row, ["Department"]),
+        daysWorked: daysWorkedValue,
+        lopDays: lopDaysValue,
+        daysPayable:
+          daysPayableValue === ""
+            ? Math.max(daysWorkedValue - lopDaysValue, 0)
+            : toNumber(daysPayableValue, 30),
+        address: addressValue,
+        uan: uanValue,
+        pan: getCell(row, ["PAN", "Pan"]),
+      },
+      variablePayEnabled: variableAnnual > 0,
+      variablePayAmount: variableAnnual,
+      bonusEnabled: bonusValue > 0,
+      bonusAmount: bonusValue,
+      pfEnabled: employeePF > 0 || employerPF > 0,
+      employeeShareAmount: employeePF,
+      employerShareAmount: employerPF,
+      uanEnabled: Boolean(uanValue),
+      addressEnabled: Boolean(addressValue),
+      TdsEnabled: tdsValue > 0,
+      TdsAmountInput: tdsValue,
+    };
+  };
+
+  const applyPayslip = (payslip, index) => {
+    setData(payslip.data);
+    setVariablePayEnabled(payslip.variablePayEnabled);
+    setVariablePayAmount(payslip.variablePayAmount);
+    setBonusEnabled(payslip.bonusEnabled);
+    setBonusAmount(payslip.bonusAmount);
+    setPfEnabled(payslip.pfEnabled);
+    setEmployeeShareAmount(payslip.employeeShareAmount);
+    setEmployerShareAmount(payslip.employerShareAmount);
+    setUanEnabled(payslip.uanEnabled);
+    setAddressEnabled(payslip.addressEnabled);
+    setTdsEnabled(payslip.TdsEnabled);
+    setTdsAmount(payslip.TdsAmountInput);
+    setCurrentPayslipIndex(index);
+    setConfirmed(true);
+  };
+
+  const handleExcelUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const workbook = XLSX.read(event.target.result, {
+        type: "array",
+        cellDates: true,
+      });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(firstSheet, { defval: "" });
+      const payslips = rows
+        .map(normalizePayslipRow)
+        .filter((row) => row.data.name || row.data.associateId);
+
+      if (payslips.length === 0) {
+        window.alert("No payslip rows found in the uploaded Excel file.");
+        return;
+      }
+
+      setUploadedPayslips(payslips);
+      applyPayslip(payslips[0], 0);
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = "";
+  };
+
+  const showUploadedPayslip = (nextIndex) => {
+    const safeIndex = Math.min(
+      Math.max(nextIndex, 0),
+      uploadedPayslips.length - 1
+    );
+    applyPayslip(uploadedPayslips[safeIndex], safeIndex);
+  };
+
   const downloadExcel = () => {
     if (excelRows.length === 0) {
       window.alert("Please generate at least 1 payslip before downloading Excel.");
@@ -273,6 +438,7 @@ export default function PayslipCTC() {
         <div className="col-md-3"> 
           <label>Variable Pay</label> 
           <select className="form-control" 
+          value={variablePayEnabled ? "yes" : "no"}
           onChange={(e) => setVariablePayEnabled(e.target.value === "yes")} 
           > 
             <option value="no">No</option> 
@@ -282,12 +448,14 @@ export default function PayslipCTC() {
               <div className="col-md-3"> 
               <label>Variable Pay Amount (Annual)</label> 
               <input type="number" className="form-control" 
+              value={variablePayAmount}
               onChange={(e) => setVariablePayAmount(e.target.value)} /> 
               </div> )} 
               {/* Bonus */} 
               <div className="col-md-3"> 
                 <label>Bonus</label> 
                 <select className="form-control" 
+                value={bonusEnabled ? "yes" : "no"}
                 onChange={(e) => setBonusEnabled(e.target.value === "yes")} > 
                 <option value="no">No</option> 
                 <option value="yes">Yes</option> 
@@ -297,12 +465,14 @@ export default function PayslipCTC() {
                   <div className="col-md-3"> 
                   <label>Bonus Amount</label> 
                   <input type="number" className="form-control" 
+                  value={bonusAmount}
                   onChange={(e) => setBonusAmount(e.target.value)} /> 
                   </div> )}
                     <div className="col-md-3">
                       <label>PF</label>
                       <select
                         className="form-control"
+                        value={pfEnabled ? "yes" : "no"}
                         onChange={(e) => {
                           const enabled = e.target.value === "yes";
                           setPfEnabled(enabled);
@@ -322,6 +492,7 @@ export default function PayslipCTC() {
                         <input
                           type="number"
                           className="form-control"
+                          value={employeeShareAmount}
                           onChange={(e) => setEmployeeShareAmount(e.target.value)}
                         />
                       </div>
@@ -332,6 +503,7 @@ export default function PayslipCTC() {
                         <input
                           type="number"
                           className="form-control"
+                          value={employerShareAmount}
                           onChange={(e) => setEmployerShareAmount(e.target.value)}
                         />
                       </div>
@@ -340,6 +512,7 @@ export default function PayslipCTC() {
                       <label>UAN</label>
                       <select
                         className="form-control"
+                        value={uanEnabled ? "yes" : "no"}
                         onChange={(e) => setUanEnabled(e.target.value === "yes")}
                       >
                         <option value="no">No</option>
@@ -372,6 +545,7 @@ export default function PayslipCTC() {
                         <label>Address</label>
                         <select
                           className="form-control"
+                          value={addressEnabled ? "yes" : "no"}
                           onChange={(e) => setAddressEnabled(e.target.value === "yes")}
                         >
                           <option value="no">No</option>
@@ -395,6 +569,7 @@ export default function PayslipCTC() {
                         <label>TDS</label>
                         <select
                           className="form-control"
+                          value={TdsEnabled ? "yes" : "no"}
                           onChange={(e) => setTdsEnabled(e.target.value === "yes")}
                         >
                           <option value="no">No</option>
@@ -407,6 +582,7 @@ export default function PayslipCTC() {
                           <input
                             type="number"
                             className="form-control"
+                            value={TdsAmountInput}
                             onChange={(e) => setTdsAmount(e.target.value)}
                           />
                         </div>
@@ -425,11 +601,43 @@ export default function PayslipCTC() {
                   setExcelRows((prev) => [...prev, buildExcelRow()]);
                 }}
               >
-                Upload Excel
+                Add Current Row
               </button>
+              <div className="col-md-4">
+                <label>Upload Excel</label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="form-control"
+                  onChange={handleExcelUpload}
+                />
+              </div>
               <div className="text-muted mt-2">
               Excel entries: {excelRows.length}
               </div>
+              {uploadedPayslips.length > 0 && (
+                <div className="d-flex align-items-center gap-2 flex-wrap mt-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={currentPayslipIndex === 0}
+                    onClick={() => showUploadedPayslip(currentPayslipIndex - 1)}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-muted">
+                    Payslip {currentPayslipIndex + 1} of {uploadedPayslips.length}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={currentPayslipIndex === uploadedPayslips.length - 1}
+                    onClick={() => showUploadedPayslip(currentPayslipIndex + 1)}
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
           {/* ===== PAYSLIP ===== */}
           {confirmed && (
             <>
@@ -443,22 +651,24 @@ export default function PayslipCTC() {
                     <div className="logo-row">
                       <img src={logo} alt="logo" className="company-logo" />
                     </div>
+                    <div className="header-employee-info">
+                      <div className="info-row">
+                        <span className="label">Name</span>
+                        <span className="colon">:</span>
+                        <span className="value">{data.name}</span>
+                      </div>
+                      <div className="info-row">
+                        <span className="label">Designation</span>
+                        <span className="colon">:</span>
+                        <span className="value">{data.designation}</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="header-right">
                     <div className="info-row">
                       <span className="label">Payslip For</span>
                       <span className="colon">:</span>
                       <span className="value">{data.payslipFor}</span>
-                    </div>
-                    <div className="info-row">
-                      <span className="label">Name</span>
-                      <span className="colon">:</span>
-                      <span className="value">{data.name}</span>
-                    </div>
-                    <div className="info-row">
-                      <span className="label">Designation</span>
-                      <span className="colon">:</span>
-                      <span className="value">{data.designation}</span>
                     </div>
                     <div className="info-row">
                       <span className="label">CTC</span>

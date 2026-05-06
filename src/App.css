@@ -46,6 +46,11 @@
   flex: 1;
 }
 
+.header-employee-info {
+  margin-top: 170px;
+  max-width: 60%;
+}
+
 .confidential-text {
   position: absolute;
   top: 0.21px;
@@ -107,7 +112,7 @@
 /* RIGHT */
 .header-right {
   margin-top: 170px;
-  max-width: 200%;     /* ✅ stays inside border */
+  max-width: 40%;
   margin-bottom: 0;
   margin-left: auto;
   width: max-content;
